@@ -2,13 +2,14 @@
 /* eslint-env browser */
 import { HomeAssistant } from 'custom-card-helpers';
 import _ from 'lodash';
+import { css, LitElement, html, TemplateResult } from 'lit-element';
 import Plex from './modules/Plex';
 import PlayController from './modules/PlayController';
 import { escapeHtml, getOffset } from './modules/utils';
 import { CSS_STYLE, LOREM_IPSUM } from './const';
 import style from './modules/style';
 
-class PlexMeetsHomeAssistant extends HTMLElement {
+class PlexMeetsHomeAssistant extends LitElement {
 	plexProtocol: 'http' | 'https' = 'http';
 
 	plex: Plex | undefined;
@@ -41,8 +42,6 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 
 	requestTimeout = 3000;
 
-	loading = false;
-
 	maxCount: false | number = false;
 
 	playSupported = false;
@@ -59,7 +58,19 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 
 	card: HTMLElement | undefined;
 
+	dataLoaded = false;
+
+	static get properties() {
+		console.log('get properties');
+		return {
+			hass: {},
+			config: {},
+			props: {}
+		};
+	}
+
 	set hass(hass: HomeAssistant) {
+		console.log('HASS');
 		this.hassObj = hass;
 		if (this.plex) {
 			this.playController = new PlayController(this.hassObj, this.plex, this.config.entity_id);
@@ -78,6 +89,7 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 	}
 
 	loadInitialData = async (): Promise<void> => {
+		console.log('loadInitialData');
 		this.loading = true;
 		this.renderPage();
 		try {
@@ -94,7 +106,8 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 				}
 
 				this.loading = false;
-				this.render();
+				console.log('Loaded all!');
+				// this.render();
 			} else {
 				throw Error('Plex not initialized.');
 			}
@@ -105,10 +118,52 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 		}
 	};
 
-	render = (): void => {
+	render = (): TemplateResult => {
+		console.log('render');
+		const contentbg = html`
+			<div class="contentbg"></div>
+		`;
+		const detail = html`
+			<div class="detail">
+				<h1></h1>
+				<h2></h2>
+				<span class="metaInfo"></span><span class="detailDesc"></span>
+				<div class="clear"></div>
+			</div>
+		`;
+		const seasons = html`
+			<div class="seasons"></div>
+		`;
+		const episodes = html`
+			<div class="episodes"></div>
+		`;
+		const clear = html`
+			<div class="clear"></div>
+		`;
+		const loading = html`
+			<div style="padding:16px;">
+				<div style="display: flex; align-items: center; justify-content: center;">
+					<div class="lds-ring">
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+					</div>
+				</div>
+			</div>
+		`;
+
+		return html`
+			<ha-card>
+				${this.loading} ${loading} ${contentbg} ${detail} ${seasons} ${episodes} ${clear}
+			</ha-card>
+		`;
+		console.log('render');
 		this.previousPositions = [];
+		const self = this;
 
 		// todo: find a better way to detect resize...
+		let ran = false;
 		setInterval(() => {
 			if (this.movieElems.length > 0) {
 				let renderNeeded = false;
@@ -130,98 +185,129 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 						this.previousPositions = [];
 					}
 				}
+
+				if (!_.includes(this.innerHTML, '.seasons') && !ran) {
+					console.log('Needs reload!');
+					/*
+					if (this) this.innerHTML = '';
+					this.loadCustomStyles();
+					*/
+					// this.renderPage(false);
+					// this.appendChild(style);
+					ran = true;
+				}
+
 				if (renderNeeded) {
+					console.log('rendering disabled todo');
+					/*
 					this.renderPage();
 					const contentbg = this.getElementsByClassName('contentbg');
 					this.contentBGHeight = (contentbg[0] as HTMLElement).scrollHeight;
+					*/
 				}
 			}
-		}, 100);
+		}, 1000);
 
 		this.renderPage();
 	};
 
-	renderPage = (): void => {
-		if (this) this.innerHTML = '';
-		this.card = document.createElement('ha-card');
-		this.card.style.transition = '0.5s';
-		this.card.style.overflow = 'hidden';
-		this.card.style.padding = '16px';
-		// card.header = this.config.libraryName;
-		this.content = document.createElement('div');
+	renderPage = (debug = false): void => {
+		/*
+		console.log('renderPage');
+		if (!this.dataLoaded) {
+			let continueLoading = true;
+			if (!this.card) {
+				this.card = document.createElement('ha-card');
+				this.card.style.transition = '0.5s';
+				this.card.style.overflow = 'hidden';
+				this.card.style.padding = '16px';
+				// card.header = this.config.libraryName;
+				this.content = document.createElement('div');
 
-		this.content.innerHTML = '';
-		if (this.error !== '') {
-			this.content.innerHTML = `Error: ${this.error}`;
-		} else if (this.data[this.config.libraryName] && this.data[this.config.libraryName].length === 0) {
-			this.content.innerHTML = `Library ${escapeHtml(this.config.libraryName)} has no items.`;
-		} else if (this.loading) {
-			this.content.style.padding = '16px 16px 16px';
-			this.content.innerHTML =
-				'<div style="display: flex; align-items: center; justify-content: center;"><div class="lds-ring"><div></div><div></div><div></div><div></div></div></div>';
-		}
+				this.content.innerHTML = '';
 
-		this.card.appendChild(this.content);
-		this.appendChild(this.card);
-
-		let count = 0;
-
-		const contentbg = document.createElement('div');
-		contentbg.className = 'contentbg';
-		this.content.appendChild(contentbg);
-
-		this.detailElem = document.createElement('div');
-		this.detailElem.className = 'detail';
-		this.detailElem.innerHTML =
-			"<h1></h1><h2></h2><span class='metaInfo'></span><span class='detailDesc'></span><div class='clear'></div>";
-
-		if (this.playSupported) {
-			// todo: temp disabled
-			// this.detailElem.innerHTML += "<span class='detailPlayAction'></span>";
-		}
-
-		this.content.appendChild(this.detailElem);
-
-		this.seasonsElem = document.createElement('div');
-		this.seasonsElem.className = 'seasons';
-		this.seasonsElem.addEventListener('click', () => {
-			this.hideBackground();
-			this.minimizeAll();
-		});
-		this.content.appendChild(this.seasonsElem);
-
-		this.episodesElem = document.createElement('div');
-		this.episodesElem.className = 'episodes';
-		this.episodesElem.addEventListener('click', () => {
-			this.hideBackground();
-			this.minimizeAll();
-		});
-		this.content.appendChild(this.episodesElem);
-
-		// todo: figure out why timeout is needed here and do it properly
-		setTimeout(() => {
-			contentbg.addEventListener('click', () => {
-				this.hideBackground();
-				this.minimizeAll();
-			});
-		}, 1);
-		if (this.data[this.config.libraryName]) {
-			// eslint-disable-next-line consistent-return
-			_.forEach(this.data[this.config.libraryName], (movieData: Record<string, any>) => {
-				if (!this.maxCount || count < this.maxCount) {
-					count += 1;
-					this.content.appendChild(this.getMovieElement(movieData, this.data.serverID));
-				} else {
-					return true;
+				if (this.error !== '') {
+					this.content.innerHTML = `Error: ${this.error}`;
+					continueLoading = false;
+				} else if (this.data[this.config.libraryName] && this.data[this.config.libraryName].length === 0) {
+					this.content.innerHTML = `Library ${escapeHtml(this.config.libraryName)} has no items.`;
+					continueLoading = false;
+				} else if (this.loading) {
+					this.content.style.padding = '16px 16px 16px';
+					this.content.innerHTML =
+						'<div style="display: flex; align-items: center; justify-content: center;"><div class="lds-ring"><div></div><div></div><div></div><div></div></div></div>';
+					continueLoading = false;
 				}
-			});
-		}
-		const endElem = document.createElement('div');
-		endElem.className = 'clear';
-		this.content.appendChild(endElem);
 
-		this.calculatePositions();
-		this.loadCustomStyles();
+				this.card.appendChild(this.content);
+				this.appendChild(this.card);
+
+				this.loadCustomStyles();
+			}
+
+			if (continueLoading) {
+				this.content.innerHTML = '';
+				this.dataLoaded = true;
+				let count = 0;
+
+				const contentbg = document.createElement('div');
+				contentbg.className = 'contentbg';
+				this.content.appendChild(contentbg);
+				this.detailElem = document.createElement('div');
+				this.detailElem.className = 'detail';
+				this.detailElem.innerHTML =
+					"<h1></h1><h2></h2><span class='metaInfo'></span><span class='detailDesc'></span><div class='clear'></div>";
+
+				if (this.playSupported) {
+					// todo: temp disabled
+					// this.detailElem.innerHTML += "<span class='detailPlayAction'></span>";
+				}
+
+				this.content.appendChild(this.detailElem);
+
+				this.seasonsElem = document.createElement('div');
+				this.seasonsElem.className = 'seasons';
+				this.seasonsElem.addEventListener('click', () => {
+					this.hideBackground();
+					this.minimizeAll();
+				});
+				this.content.appendChild(this.seasonsElem);
+
+				this.episodesElem = document.createElement('div');
+				this.episodesElem.className = 'episodes';
+				this.episodesElem.addEventListener('click', () => {
+					this.hideBackground();
+					this.minimizeAll();
+				});
+				this.content.appendChild(this.episodesElem);
+
+				// todo: figure out why timeout is needed here and do it properly
+				setTimeout(() => {
+					contentbg.addEventListener('click', () => {
+						this.hideBackground();
+						this.minimizeAll();
+					});
+				}, 1);
+				if (this.data[this.config.libraryName]) {
+					// eslint-disable-next-line consistent-return
+					_.forEach(this.data[this.config.libraryName], (movieData: Record<string, any>) => {
+						if (!this.maxCount || count < this.maxCount) {
+							count += 1;
+							this.content.appendChild(this.getMovieElement(movieData, this.data.serverID));
+						} else {
+							return true;
+						}
+					});
+				}
+				const endElem = document.createElement('div');
+				endElem.className = 'clear';
+				this.content.appendChild(endElem);
+
+				this.calculatePositions();
+			}
+		}
+		return this.content.innerHTML;
+		*/
 	};
 
 	calculatePositions = (): void => {
@@ -731,7 +817,12 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 	};
 
 	loadCustomStyles = (): void => {
-		this.appendChild(style);
+		console.log('loadCustomStyles - disabled toto');
+		/*
+		if (this.card) {
+			this.card.appendChild(style);
+		}
+		*/
 	};
 
 	getPlayButton = (): HTMLButtonElement => {
@@ -771,6 +862,298 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 	getCardSize = (): number => {
 		return 3;
 	};
+
+	static get styles() {
+		console.log('STYLES');
+		return css`
+			.detailPlayAction {
+				top: 10px;
+				color: rgb(15 17 19);
+				font-weight: bold;
+				padding: 5px 10px;
+				border-radius: 5px;
+				cursor: pointer;
+				position: relative;
+				background: orange;
+			}
+			.seasons {
+				z-index: 5;
+				position: absolute;
+				top: ${CSS_STYLE.expandedHeight + 16}px;
+				width: calc(100% - 32px);
+				left: 0;
+				padding: 16px;
+			}
+			.episodes {
+				z-index: 4;
+				position: absolute;
+				top: ${CSS_STYLE.expandedHeight + 16}px;
+				width: calc(100% - 32px);
+				left: 0;
+				padding: 16px;
+				display: none;
+			}
+			.ratingDetail {
+				background: #ffffff24;
+				padding: 5px 10px;
+				border-radius: 5px;
+				white-space: nowrap;
+				margin-bottom: 10px;
+				float: left;
+			}
+			.contentRatingDetail {
+				background: #ffffff24;
+				padding: 5px 10px;
+				border-radius: 5px;
+				margin-right: 10px;
+				white-space: nowrap;
+				float: left;
+				margin-bottom: 10px;
+			}
+			.clear {
+				clear: both;
+			}
+			.minutesDetail {
+				background: #ffffff24;
+				padding: 5px 10px;
+				border-radius: 5px;
+				margin-right: 10px;
+				white-space: nowrap;
+				float: left;
+				margin-bottom: 10px;
+			}
+			.detail .metaInfo {
+				display: block;
+			}
+			.detail h2 {
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				overflow: hidden;
+				position: relative;
+				margin: 5px 0px 10px 0px;
+				font-size: 16px;
+			}
+			.detail h1 {
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				overflow: hidden;
+				position: relative;
+				padding: 5px 0px;
+				margin: 16px 0 10px 0;
+			}
+			.detail {
+				visibility: hidden;
+				max-height: ${CSS_STYLE.expandedHeight + 16}px;
+				display: block;
+				overflow: scroll;
+				text-overflow: ellipsis;
+			}
+			.detailDesc {
+				position: relative;
+			}
+			.lds-ring {
+				display: inline-block;
+				position: relative;
+				width: 80px;
+				height: 80px;
+			}
+			.lds-ring div {
+				box-sizing: border-box;
+				display: block;
+				position: absolute;
+				width: 64px;
+				height: 64px;
+				margin: 8px;
+				border: 8px solid orange;
+				border-radius: 50%;
+				animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+				border-color: orange transparent transparent transparent;
+			}
+			.lds-ring div:nth-child(1) {
+				animation-delay: -0.45s;
+			}
+			.lds-ring div:nth-child(2) {
+				animation-delay: -0.3s;
+			}
+			.lds-ring div:nth-child(3) {
+				animation-delay: -0.15s;
+			}
+			@keyframes lds-ring {
+				0% {
+					transform: rotate(0deg);
+				}
+				100% {
+					transform: rotate(360deg);
+				}
+			}
+			.detail {
+				position: absolute;
+				left: 247px;
+				width: calc(100% - 267px);
+				z-index: 4;
+				transition: 0.5s;
+				color: rgba(255, 255, 255, 0);
+			}
+			.contentbg {
+				position: absolute;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0, 0, 0, 0);
+				z-index: 0;
+				transition: 0.5s;
+				left: 0;
+				top: 0;
+			}
+			.yearElem {
+				color: hsla(0, 0%, 100%, 0.45);
+				position: relative;
+			}
+			.seasonTitleElem {
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				overflow: hidden;
+				position: relative;
+				font-weight: bold;
+				margin-top: 5px;
+				transition: 0.5s;
+				color: white;
+			}
+			.episodeTitleElem {
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				overflow: hidden;
+				position: relative;
+				font-weight: bold;
+				margin-top: 5px;
+				transition: 0.5s;
+				color: white;
+			}
+			.seasonEpisodesCount {
+				transition: 0.5s;
+				color: white;
+			}
+			.episodeNumber {
+				color: white;
+			}
+			.titleElem {
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				overflow: hidden;
+				position: relative;
+			}
+			.seasonContainer {
+				position: relative;
+				float: left;
+				margin-right: 16px;
+				margin-bottom: 15px;
+				transition: 0.5s;
+			}
+			.episodeContainer {
+				position: relative;
+				float: left;
+				margin-right: 16px;
+				margin-bottom: 15px;
+				transition: 0.5s;
+			}
+			.episodeElem {
+				background-repeat: no-repeat;
+				background-size: contain;
+				border-radius: 5px;
+				transition: 0.5s;
+			}
+			.seasonElem {
+				background-repeat: no-repeat;
+				background-size: contain;
+				border-radius: 5px;
+				transition: 0.5s;
+			}
+			.movieElem {
+				margin-bottom: 5px;
+				background-repeat: no-repeat;
+				background-size: contain;
+				border-radius: 5px;
+				transition: 0.5s;
+				position: absolute;
+				z-index: 1;
+			}
+			.container {
+				z-index: 1;
+				float: left;
+				margin-bottom: 20px;
+				margin-right: 10px;
+				transition: 0.5s;
+			}
+			.interactiveArea {
+				position: relative;
+				width: 100%;
+				height: 100%;
+				transition: 0.5s;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.interactiveArea:hover {
+				background: rgba(0, 0, 0, 0.3);
+			}
+			button[name='playButton'] {
+				width: 40px;
+				height: 40px;
+				border: 2px solid white;
+				border-radius: 100%;
+				margin: auto;
+				cursor: pointer;
+				transition: 0.2s;
+			}
+			button[name='playButton']:hover {
+				background: orange !important;
+				border: 2px solid orange !important;
+			}
+			button[name='playButton']:focus {
+				outline: 0;
+				background: orange !important;
+				border: 2px solid orange !important;
+				box-shadow: 0 0 0 3px orange !important;
+			}
+
+			button[name='playButton']::after {
+				content: '';
+				display: inline-block;
+				position: relative;
+				top: 1px;
+				left: 2px;
+				border-style: solid;
+				border-width: 6px 0 6px 12px;
+				border-color: transparent transparent transparent white;
+				transition: 0.2s;
+			}
+
+			.interactiveArea button[name='playButton'] {
+				background: rgba(0, 0, 0, 0);
+				border: 2px solid rgba(255, 255, 255, 0);
+			}
+
+			.interactiveArea:hover button[name='playButton'] {
+				background: rgba(0, 0, 0, 0.4);
+				border: 2px solid rgba(255, 255, 255, 1);
+			}
+
+			.interactiveArea button[name='playButton']:after {
+				border-color: transparent transparent transparent rgba(255, 255, 255, 0);
+			}
+
+			.interactiveArea:hover button[name='playButton']:after {
+				border-color: transparent transparent transparent rgba(255, 255, 255, 1);
+			}
+
+			button[name='playButton']:hover:after {
+				border-color: transparent transparent transparent black !important;
+			}
+
+			button[name='playButton']:focus:after {
+				border-color: transparent transparent transparent black !important;
+			}
+		`;
+	}
 }
 
 customElements.define('plex-meets-homeassistant', PlexMeetsHomeAssistant);
