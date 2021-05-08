@@ -7,6 +7,7 @@ import PlayController from './modules/PlayController';
 import { escapeHtml, getOffset } from './modules/utils';
 import { CSS_STYLE } from './const';
 import style from './modules/style';
+import PlexMeetsHomeAssistantEditor from './editor';
 
 class PlexMeetsHomeAssistant extends HTMLElement {
 	plexProtocol: 'http' | 'https' = 'http';
@@ -70,6 +71,10 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 			}
 		}
 	}
+
+	getConfigElement = (): HTMLElement => {
+		return document.createElement('plex-meets-homeassistant-editor');
+	};
 
 	loadInitialData = async (): Promise<void> => {
 		this.loading = true;
@@ -768,3 +773,4 @@ class PlexMeetsHomeAssistant extends HTMLElement {
 }
 
 customElements.define('plex-meets-homeassistant', PlexMeetsHomeAssistant);
+customElements.define('plex-meets-homeassistant-editor', PlexMeetsHomeAssistantEditor);

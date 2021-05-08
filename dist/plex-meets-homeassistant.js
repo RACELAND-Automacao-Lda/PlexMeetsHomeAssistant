@@ -19440,6 +19440,26 @@ style.textContent = css `
 	}
 `.cssText;
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-env browser */
+class PlexMeetsHomeAssistantEditor extends HTMLElement {
+    constructor() {
+        super(...arguments);
+        this.config = {};
+        this.setConfig = (config) => {
+            this.config = config;
+        };
+        this.configChanged = (newConfig) => {
+            const event = new Event('config-changed', {
+                bubbles: true,
+                composed: true
+            });
+            event.detail = { config: newConfig };
+            this.dispatchEvent(event);
+        };
+    }
+}
+
 class PlexMeetsHomeAssistant extends HTMLElement {
     constructor() {
         super(...arguments);
@@ -19458,6 +19478,9 @@ class PlexMeetsHomeAssistant extends HTMLElement {
         this.error = '';
         this.previousPositions = [];
         this.contentBGHeight = 0;
+        this.getConfigElement = () => {
+            return document.createElement('plex-meets-homeassistant-editor');
+        };
         this.loadInitialData = async () => {
             this.loading = true;
             this.renderPage();
@@ -20088,3 +20111,4 @@ class PlexMeetsHomeAssistant extends HTMLElement {
     }
 }
 customElements.define('plex-meets-homeassistant', PlexMeetsHomeAssistant);
+customElements.define('plex-meets-homeassistant-editor', PlexMeetsHomeAssistantEditor);
